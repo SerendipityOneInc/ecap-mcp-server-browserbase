@@ -6,7 +6,6 @@ export type ToolCapability = "core" | string;
 export type CLIOptions = {
   proxies?: boolean;
   advancedStealth?: boolean;
-  contextId?: string;
   persist?: boolean;
   port?: number;
   host?: string;
@@ -85,7 +84,6 @@ export async function configFromCLIOptions(
     },
     proxies: cliOptions.proxies,
     context: {
-      contextId: cliOptions.contextId,
       persist: cliOptions.persist,
     },
     viewPort: {

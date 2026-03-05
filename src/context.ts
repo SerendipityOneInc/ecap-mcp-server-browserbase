@@ -24,10 +24,10 @@ export class Context {
     return this.sessionManager.getActiveSessionId();
   }
 
-  constructor(server: Server, config: Config, contextId?: string) {
+  constructor(server: Server, config: Config) {
     this.server = server;
     this.config = config;
-    this.sessionManager = new SessionManager(contextId);
+    this.sessionManager = new SessionManager();
   }
 
   public getServer(): Server {

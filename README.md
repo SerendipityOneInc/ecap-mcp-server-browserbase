@@ -203,7 +203,6 @@ The Browserbase MCP server accepts the following command-line flags:
 | `--proxies`                | Enable Browserbase proxies for the session                                  |
 | `--advancedStealth`        | Enable Browserbase Advanced Stealth (Only for Scale Plan Users)             |
 | `--keepAlive`              | Enable Browserbase Keep Alive Session                                       |
-| `--contextId <contextId>`  | Specify a Browserbase Context ID to use                                     |
 | `--persist`                | Whether to persist the Browserbase context (default: true)                  |
 | `--port <port>`            | Port to listen on for HTTP/SHTTP transport                                  |
 | `--host <host>`            | Host to bind server to (default: localhost, use 0.0.0.0 for all interfaces) |
@@ -311,22 +310,35 @@ To use advanced stealth, set the --advancedStealth flag in your MCP Config:
 
 Here are our docs on [Contexts](https://docs.browserbase.com/features/contexts)
 
-To use contexts, set the --contextId flag in your MCP Config:
+To use contexts, pass `contextId` directly in the `browserbase_session_create` tool request:
+
+```json
+{
+  "name": "browserbase_session_create",
+  "arguments": {
+    "contextId": "<YOUR_CONTEXT_ID>",
+    "persist": true
+  }
+}
+```
+
+`contextId` is optional. When a session is created, the tool response includes the context ID actually used.
+
+### HTTP Auth
+
+Requests can include `Authorization: Bearer <token>`.
+Current behavior is pass-through (no blocking). Token verification will be integrated with an external auth service in a later update.
+
+Example client config with bearer header:
 
 ```json
 {
   "mcpServers": {
     "browserbase": {
-      "command": "npx",
-      "args": [
-        "@browserbasehq/mcp-server-browserbase",
-        "--contextId",
-        "<YOUR_CONTEXT_ID>"
-      ],
-      "env": {
-        "BROWSERBASE_API_KEY": "",
-        "BROWSERBASE_PROJECT_ID": "",
-        "GEMINI_API_KEY": ""
+      "type": "http",
+      "url": "http://localhost:3000/mcp",
+      "headers": {
+        "Authorization": "Bearer <YOUR_TOKEN>"
       }
     }
   }

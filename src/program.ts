@@ -39,7 +39,6 @@ program
     "--advancedStealth",
     "Use advanced stealth mode. Only available to Browserbase Scale Plan users.",
   )
-  .option("--contextId <contextId>", "Browserbase Context ID to use.")
   .option(
     "--persist [boolean]",
     "Whether to persist the Browserbase context",

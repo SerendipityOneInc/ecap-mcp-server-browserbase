@@ -26,6 +26,9 @@ export const createStagehandInstance = async (
     config.modelApiKey ||
     process.env.GEMINI_API_KEY ||
     process.env.GOOGLE_API_KEY;
+  const resolvedContextId = params.contextId ?? config.context?.contextId;
+  const resolvedContextPersist =
+    params.contextPersist ?? config.context?.persist ?? true;
 
   const stagehand = new Stagehand({
     env: "BROWSERBASE",
@@ -50,10 +53,10 @@ export const createStagehandInstance = async (
           width: config.viewPort?.browserWidth ?? 1288,
           height: config.viewPort?.browserHeight ?? 711,
         },
-        context: config.context?.contextId
+        context: resolvedContextId
           ? {
-              id: config.context?.contextId,
-              persist: config.context?.persist ?? true,
+              id: resolvedContextId,
+              persist: resolvedContextPersist,
             }
           : undefined,
         advancedStealth: config.advancedStealth ?? undefined,
@@ -93,11 +96,11 @@ export class SessionManager {
   // Track sessions currently being cleaned up to prevent concurrent cleanup
   private cleaningUpSessions: Set<string> = new Set();
 
-  constructor(contextId?: string) {
+  constructor() {
     this.browsers = new Map();
     this.defaultBrowserSession = null;
     const uniqueId = randomUUID();
-    this.defaultSessionId = `browserbase_session_${contextId || "default"}_${Date.now()}_${uniqueId}`;
+    this.defaultSessionId = `browserbase_session_default_${Date.now()}_${uniqueId}`;
     this.activeSessionId = this.defaultSessionId;
   }
 
@@ -135,12 +138,16 @@ export class SessionManager {
    * Creates a new Browserbase session using Stagehand.
    * @param newSessionId - Internal session ID for tracking in SessionManager
    * @param config - Configuration object
-   * @param resumeSessionId - Optional Browserbase session ID to resume/reuse
+   * @param options - Optional session creation overrides
    */
   async createNewBrowserSession(
     newSessionId: string,
     config: Config,
-    resumeSessionId?: string,
+    options: {
+      resumeSessionId?: string;
+      contextId?: string;
+      contextPersist?: boolean;
+    } = {},
   ): Promise<BrowserSession> {
     if (!config.browserbaseApiKey) {
       throw new Error("Browserbase API Key is missing in the configuration.");
@@ -152,15 +159,23 @@ export class SessionManager {
     }
 
     try {
+      const resolvedContextId =
+        options.contextId ?? config.context?.contextId;
+      const resolvedContextPersist =
+        options.contextPersist ?? config.context?.persist ?? true;
       process.stderr.write(
-        `[SessionManager] ${resumeSessionId ? "Resuming" : "Creating"} Stagehand session ${newSessionId}...\n`,
+        `[SessionManager] ${options.resumeSessionId ? "Resuming" : "Creating"} Stagehand session ${newSessionId}...\n`,
       );
 
       // Create and initialize Stagehand instance using shared function
       const stagehand = await createStagehandInstance(
         config,
         {
-          ...(resumeSessionId && { browserbaseSessionID: resumeSessionId }),
+          ...(options.resumeSessionId && {
+            browserbaseSessionID: options.resumeSessionId,
+          }),
+          contextId: resolvedContextId,
+          contextPersist: resolvedContextPersist,
         },
         newSessionId,
       );
@@ -189,6 +204,7 @@ export class SessionManager {
         page,
         sessionId: browserbaseSessionId,
         stagehand,
+        contextId: resolvedContextId,
       };
 
       this.browsers.set(newSessionId, sessionObj);

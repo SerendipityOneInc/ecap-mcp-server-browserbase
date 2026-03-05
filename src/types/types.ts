@@ -17,6 +17,8 @@ export type CreateSessionParams = {
   modelName?: string;
   modelApiKey?: string;
   browserbaseSessionID?: string;
+  contextId?: string;
+  contextPersist?: boolean;
   browserbaseSessionCreateParams?: any;
   meta?: Record<string, any>;
 };
@@ -25,6 +27,7 @@ export type BrowserSession = {
   page: Page;
   sessionId: string;
   stagehand: Stagehand;
+  contextId?: string;
 };
 
 export type ToolActionResult =

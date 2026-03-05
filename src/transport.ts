@@ -30,6 +30,20 @@ export async function startStdioTransport(
   await server.connect(new StdioServerTransport());
 }
 
+function processAuthorizationHeader(req: http.IncomingMessage): void {
+  // Placeholder for future auth service integration.
+  // We intentionally do not block requests at this stage.
+  const rawAuthHeader = req.headers.authorization;
+  const authHeader = Array.isArray(rawAuthHeader)
+    ? rawAuthHeader[0]
+    : rawAuthHeader;
+  if (!authHeader) return;
+  const [scheme, token] = authHeader.split(" ");
+  if (scheme?.toLowerCase() === "bearer" && token) {
+    return;
+  }
+}
+
 async function handleStreamable(
   req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -78,6 +92,9 @@ export function startHttpTransport(
       res.end("Bad request: missing URL");
       return;
     }
+
+    processAuthorizationHeader(req);
+
     const url = new URL(`http://localhost${req.url}`);
     if (url.pathname.startsWith("/mcp"))
       await handleStreamable(req, res, serverList, streamableSessions);

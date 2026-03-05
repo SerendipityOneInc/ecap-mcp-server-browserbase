@@ -3,6 +3,7 @@ import type { Tool, ToolSchema, ToolResult } from "./tool.js";
 import type { Context } from "../context.js";
 import type { ToolActionResult } from "../types/types.js";
 import { Browserbase } from "@browserbasehq/sdk";
+import { randomUUID } from "crypto";
 import { createUIResource } from "@mcp-ui/server";
 import type { BrowserSession } from "../types/types.js";
 import { TextContent } from "@modelcontextprotocol/sdk/types.js";
@@ -16,13 +17,25 @@ const CreateSessionInputSchema = z.object({
     .describe(
       "Optional session ID to use/reuse. If not provided or invalid, a new session is created.",
     ),
+  contextId: z
+    .string()
+    .optional()
+    .describe(
+      "Optional Browserbase context ID. Pass this in the request when you want the session to run in a specific context.",
+    ),
+  persist: z
+    .boolean()
+    .optional()
+    .describe(
+      "Optional context persistence flag when contextId is provided (defaults to true).",
+    ),
 });
 type CreateSessionInput = z.infer<typeof CreateSessionInputSchema>;
 
 const createSessionSchema: ToolSchema<typeof CreateSessionInputSchema> = {
   name: "browserbase_session_create",
   description:
-    "Create or reuse a Browserbase browser session and set it as active.",
+    "Create or reuse a Browserbase browser session and set it as active. You can optionally pass contextId in this request to run the session in a specific Browserbase context. If contextId is omitted, the server generates one and returns it.",
   inputSchema: CreateSessionInputSchema,
 };
 
@@ -36,6 +49,16 @@ async function handleCreateSession(
       const sessionManager = context.getSessionManager();
       const config = context.config; // Get config from context
       let targetSessionId: string;
+      const bb = new Browserbase({
+        apiKey: config.browserbaseApiKey,
+      });
+      const effectiveContextId =
+        params.contextId ||
+        (
+          await bb.contexts.create({
+            projectId: config.browserbaseProjectId,
+          })
+        ).id;
 
       // Session ID Strategy: Use raw sessionId for both internal tracking and Browserbase operations
       // Default session uses generated ID with timestamp/UUID, user sessions use provided ID as-is
@@ -48,20 +71,21 @@ async function handleCreateSession(
         targetSessionId = sessionManager.getDefaultSessionId();
       }
 
-      let session: BrowserSession;
       const defaultSessionId = sessionManager.getDefaultSessionId();
       if (targetSessionId === defaultSessionId) {
-        session = await sessionManager.ensureDefaultSessionInternal(config);
-      } else {
-        // When user provides a sessionId, we want to resume that Browserbase session
-        // Note: targetSessionId is used for internal tracking in SessionManager
-        // while params.sessionId is the Browserbase session ID to resume
-        session = await sessionManager.createNewBrowserSession(
+        // Avoid mutating/reusing the default session when context is passed/generated per request.
+        targetSessionId = `browserbase_session_${Date.now()}_${randomUUID()}`;
+      }
+      const session: BrowserSession =
+        await sessionManager.createNewBrowserSession(
           targetSessionId, // Internal session ID for tracking
           config,
-          params.sessionId, // Browserbase session ID to resume
+          {
+            resumeSessionId: params.sessionId, // Browserbase session ID to resume
+            contextId: effectiveContextId,
+            contextPersist: params.persist,
+          },
         );
-      }
 
       if (
         !session ||
@@ -76,10 +100,6 @@ async function handleCreateSession(
 
       // Note: No need to set context.currentSessionId - SessionManager handles this
       // and context.currentSessionId is a getter that delegates to SessionManager
-      const bb = new Browserbase({
-        apiKey: config.browserbaseApiKey,
-      });
-
       const browserbaseSessionId = session.stagehand.browserbaseSessionId;
       if (!browserbaseSessionId) {
         throw new Error(
@@ -88,6 +108,7 @@ async function handleCreateSession(
       }
       const debugUrl = (await bb.sessions.debug(browserbaseSessionId))
         .debuggerFullscreenUrl;
+      const returnedContextId = session.contextId ?? effectiveContextId;
 
       return {
         content: [
@@ -98,6 +119,10 @@ async function handleCreateSession(
           {
             type: "text",
             text: `Browserbase Live Debugger URL: ${debugUrl}`,
+          },
+          {
+            type: "text",
+            text: `Browserbase Context ID: ${returnedContextId}`,
           },
           createUIResource({
             uri: "ui://analytics-dashboard/main",
