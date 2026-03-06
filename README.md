@@ -324,6 +324,17 @@ To use contexts, pass `contextId` directly in the `browserbase_session_create` t
 
 `contextId` is optional. When a session is created, the tool response includes the context ID actually used.
 
+To close a specific session, `browserbase_session_close` requires the MCP `sessionId`:
+
+```json
+{
+  "name": "browserbase_session_close",
+  "arguments": {
+    "sessionId": "<YOUR_MCP_SESSION_ID>"
+  }
+}
+```
+
 ### HTTP Auth
 
 Requests can include `Authorization: Bearer <token>`.

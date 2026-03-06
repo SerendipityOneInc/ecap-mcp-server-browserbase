@@ -135,6 +135,14 @@ export class SessionManager {
   }
 
   /**
+   * Returns a managed session without mutating active session state.
+   * Use this when callers need to inspect existence/details only.
+   */
+  getManagedSession(sessionId: string): BrowserSession | undefined {
+    return this.browsers.get(sessionId);
+  }
+
+  /**
    * Creates a new Browserbase session using Stagehand.
    * @param newSessionId - Internal session ID for tracking in SessionManager
    * @param config - Configuration object
@@ -159,8 +167,7 @@ export class SessionManager {
     }
 
     try {
-      const resolvedContextId =
-        options.contextId ?? config.context?.contextId;
+      const resolvedContextId = options.contextId ?? config.context?.contextId;
       const resolvedContextPersist =
         options.contextPersist ?? config.context?.persist ?? true;
       process.stderr.write(

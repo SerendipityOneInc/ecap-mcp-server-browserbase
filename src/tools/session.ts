@@ -114,6 +114,10 @@ async function handleCreateSession(
         content: [
           {
             type: "text",
+            text: `MCP Session ID: ${targetSessionId}`,
+          },
+          {
+            type: "text",
             text: `Browserbase Live Session View URL: https://www.browserbase.com/sessions/${browserbaseSessionId}`,
           },
           {
@@ -157,19 +161,24 @@ const createSessionTool: Tool<typeof CreateSessionInputSchema> = {
 };
 
 // --- Tool: Close Session ---
-const CloseSessionInputSchema = z.object({});
+const CloseSessionInputSchema = z.object({
+  sessionId: z.string().min(1).describe("Required MCP session ID to close."),
+});
+type CloseSessionInput = z.infer<typeof CloseSessionInputSchema>;
 
 const closeSessionSchema: ToolSchema<typeof CloseSessionInputSchema> = {
   name: "browserbase_session_close",
-  description:
-    "Close the current Browserbase session and reset the active context.",
+  description: "Close the specified Browserbase session by MCP session ID.",
   inputSchema: CloseSessionInputSchema,
 };
 
-async function handleCloseSession(context: Context): Promise<ToolResult> {
+async function handleCloseSession(
+  context: Context,
+  params: CloseSessionInput,
+): Promise<ToolResult> {
   const action = async (): Promise<ToolActionResult> => {
-    // Store the current session ID before cleanup
-    const previousSessionId = context.currentSessionId;
+    const targetSessionId = params.sessionId;
+    const wasActiveSession = context.currentSessionId === targetSessionId;
     let cleanupSuccessful = false;
     let cleanupErrorMessage = "";
 
@@ -178,62 +187,55 @@ async function handleCloseSession(context: Context): Promise<ToolResult> {
     const sessionManager = context.getSessionManager();
 
     try {
-      const session = await sessionManager.getSession(
-        previousSessionId,
-        context.config,
-        false,
-      );
+      const session = sessionManager.getManagedSession(targetSessionId);
 
       if (session && session.stagehand) {
         // Store the actual Browserbase session ID for the replay URL
         browserbaseSessionId = session.sessionId;
 
         // cleanupSession handles both closing Stagehand and cleanup (idempotent)
-        await sessionManager.cleanupSession(previousSessionId);
+        await sessionManager.cleanupSession(targetSessionId);
         cleanupSuccessful = true;
       } else {
         process.stderr.write(
-          `[tool.closeSession] No session found for ID: ${previousSessionId || "default/unknown"}\n`,
+          `[tool.closeSession] No session found for ID: ${targetSessionId}\n`,
         );
       }
     } catch (error: unknown) {
       cleanupErrorMessage =
         error instanceof Error ? error.message : String(error);
       process.stderr.write(
-        `[tool.closeSession] Error cleaning up session (ID was ${previousSessionId || "default/unknown"}): ${cleanupErrorMessage}\n`,
+        `[tool.closeSession] Error cleaning up session (ID was ${targetSessionId}): ${cleanupErrorMessage}\n`,
       );
     }
 
-    // Step 2: SessionManager automatically resets to default on cleanup
-    // Context.currentSessionId getter will reflect the new active session
-    const oldContextSessionId = previousSessionId;
-    process.stderr.write(
-      `[tool.closeSession] Session context reset to default. Previous context session ID was ${oldContextSessionId || "default/unknown"}.\n`,
-    );
-
-    // Step 3: Determine the result message
-    const defaultSessionId = sessionManager.getDefaultSessionId();
+    // Step 2: Determine the result message
     if (cleanupErrorMessage && !cleanupSuccessful) {
       throw new Error(
-        `Failed to cleanup session (session ID was ${previousSessionId || "default/unknown"}). Error: ${cleanupErrorMessage}. Session context has been reset to default.`,
+        `Failed to cleanup session '${targetSessionId}'. Error: ${cleanupErrorMessage}`,
       );
     }
 
     if (cleanupSuccessful) {
-      let successMessage = `Browserbase session (${previousSessionId || "default"}) closed successfully. Context reset to default.`;
-      if (browserbaseSessionId && previousSessionId !== defaultSessionId) {
+      let successMessage = `Browserbase session ('${targetSessionId}') closed successfully.`;
+      if (wasActiveSession) {
+        successMessage += " Active session reset to default.";
+      }
+      if (browserbaseSessionId) {
         successMessage += ` View replay at https://www.browserbase.com/sessions/${browserbaseSessionId}`;
       }
       return { content: [{ type: "text", text: successMessage }] };
     }
 
     // No session was found
-    let infoMessage =
-      "No active session found to close. Session context has been reset to default.";
-    if (previousSessionId && previousSessionId !== defaultSessionId) {
-      infoMessage = `No active session found for session ID '${previousSessionId}'. The context has been reset to default.`;
-    }
-    return { content: [{ type: "text", text: infoMessage }] };
+    return {
+      content: [
+        {
+          type: "text",
+          text: `No active session found for session ID '${targetSessionId}'.`,
+        },
+      ],
+    };
   };
 
   return {
