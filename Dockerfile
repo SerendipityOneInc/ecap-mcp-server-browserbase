@@ -1,4 +1,4 @@
-FROM node:22-alpine AS builder
+FROM node:22-bookworm-slim AS builder
 
 RUN corepack enable
 
@@ -13,7 +13,7 @@ RUN pnpm run build && \
 
 FROM node:22-bookworm-slim
 
-LABEL io.modelcontextprotocol.server.name="one.srp/mcp-server-browserbase"
+LABEL io.modelcontextprotocol.server.name="one.srp/ecap-mcp-server-browserbase"
 
 WORKDIR /app
 
@@ -27,4 +27,4 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/cli.js ./cli.js
 COPY --from=builder /app/index.js ./index.js
 
-CMD node dist/program.js --modelApiKey "$MODEL_API_KEY" --modelName google/gemini-3-flash-preview
+CMD node dist/program.js --port 3000 --host 0.0.0.0 --modelApiKey "$MODEL_API_KEY" --modelName google/gemini-3-flash-preview
