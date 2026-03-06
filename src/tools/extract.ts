@@ -13,6 +13,7 @@ import type { ToolActionResult } from "../types/types.js";
  */
 
 const ExtractInputSchema = z.object({
+  sessionId: z.string().min(1).describe("Required MCP session ID to use."),
   instruction: z.string().describe(
     `The specific instruction for what information to extract from the current page.
     Be as detailed and specific as possible about what you want to extract. For example:
@@ -35,7 +36,7 @@ async function handleExtract(
 ): Promise<ToolResult> {
   const action = async (): Promise<ToolActionResult> => {
     try {
-      const stagehand = await context.getStagehand();
+      const stagehand = await context.getStagehand(params.sessionId);
 
       const extraction = await stagehand.extract(params.instruction);
 

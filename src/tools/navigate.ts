@@ -4,6 +4,7 @@ import type { Context } from "../context.js";
 import type { ToolActionResult } from "../types/types.js";
 
 const NavigateInputSchema = z.object({
+  sessionId: z.string().min(1).describe("Required MCP session ID to use."),
   url: z.string().describe("The URL to navigate to"),
 });
 
@@ -22,7 +23,7 @@ async function handleNavigate(
 ): Promise<ToolResult> {
   const action = async (): Promise<ToolActionResult> => {
     try {
-      const stagehand = await context.getStagehand();
+      const stagehand = await context.getStagehand(params.sessionId);
 
       const pages = stagehand.context.pages();
       const page = pages[0];

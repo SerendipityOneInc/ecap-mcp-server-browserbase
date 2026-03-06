@@ -12,6 +12,7 @@ import { registerScreenshot } from "../mcp/resources.js";
  */
 
 const ScreenshotInputSchema = z.object({
+  sessionId: z.string().min(1).describe("Required MCP session ID to use."),
   name: z.string().optional().describe("The name of the screenshot"),
 });
 
@@ -29,7 +30,7 @@ async function handleScreenshot(
 ): Promise<ToolResult> {
   const action = async (): Promise<ToolActionResult> => {
     try {
-      const stagehand = await context.getStagehand();
+      const stagehand = await context.getStagehand(params.sessionId);
       const page = stagehand.context.pages()[0];
 
       if (!page) {
@@ -96,8 +97,7 @@ async function handleScreenshot(
           context.config.browserbaseProjectId;
 
       // Associate with current mcp session id and store in memory /src/mcp/resources.ts
-      const sessionId = context.currentSessionId;
-      registerScreenshot(sessionId, name, screenshotBase64);
+      registerScreenshot(params.sessionId, name, screenshotBase64);
 
       // Notify the client that the resources changed
       const serverInstance = context.getServer();

@@ -324,6 +324,9 @@ To use contexts, pass `contextId` directly in the `browserbase_session_create` t
 
 `contextId` is optional. When a session is created, the tool response includes the context ID actually used.
 
+`browserbase_session_create` is the only tool that does not require `sessionId`.
+All other tools (`navigate`, `act`, `extract`, `observe`, `screenshot`, `get_url`, `agent`, and `session_close`) require the MCP `sessionId` in arguments.
+
 To close a specific session, `browserbase_session_close` requires the MCP `sessionId`:
 
 ```json

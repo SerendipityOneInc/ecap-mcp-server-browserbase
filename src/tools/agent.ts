@@ -12,6 +12,7 @@ import type { ToolActionResult } from "../types/types.js";
  */
 
 const AgentInputSchema = z.object({
+  sessionId: z.string().min(1).describe("Required MCP session ID to use."),
   prompt: z.string().describe(
     `The task prompt describing what you want the sub-agent to accomplish.
     Be clear and specific about the goal. For example:
@@ -34,7 +35,7 @@ async function handleAgent(
 ): Promise<ToolResult> {
   const action = async (): Promise<ToolActionResult> => {
     try {
-      const stagehand = await context.getStagehand();
+      const stagehand = await context.getStagehand(params.sessionId);
 
       // You need to provide GOOGLE_GENERATIVE_AI_API_KEY
       const agent = stagehand.agent({

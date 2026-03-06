@@ -9,8 +9,9 @@ import type { ToolActionResult } from "../types/types.js";
  * This tool is used to get the current URL of the browser page.
  */
 
-// Empty schema since getting URL doesn't require any input
-const GetUrlInputSchema = z.object({});
+const GetUrlInputSchema = z.object({
+  sessionId: z.string().min(1).describe("Required MCP session ID to use."),
+});
 
 type GetUrlInput = z.infer<typeof GetUrlInputSchema>;
 
@@ -22,12 +23,11 @@ const getUrlSchema: ToolSchema<typeof GetUrlInputSchema> = {
 
 async function handleGetUrl(
   context: Context,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   params: GetUrlInput,
 ): Promise<ToolResult> {
   const action = async (): Promise<ToolActionResult> => {
     try {
-      const stagehand = await context.getStagehand();
+      const stagehand = await context.getStagehand(params.sessionId);
 
       const page = stagehand.context.pages()[0];
 

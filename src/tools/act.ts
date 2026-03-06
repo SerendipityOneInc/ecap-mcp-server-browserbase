@@ -11,6 +11,7 @@ import type { ToolActionResult } from "../types/types.js";
  */
 
 const ActInputSchema = z.object({
+  sessionId: z.string().min(1).describe("Required MCP session ID to use."),
   action: z.string().describe(
     `The action to perform. Should be as atomic and specific as possible,
       i.e. 'Click the sign in button' or 'Type 'hello' into the search input'.`,
@@ -39,7 +40,7 @@ async function handleAct(
 ): Promise<ToolResult> {
   const action = async (): Promise<ToolActionResult> => {
     try {
-      const stagehand = await context.getStagehand();
+      const stagehand = await context.getStagehand(params.sessionId);
 
       await stagehand.act(params.action, {
         variables: params.variables,

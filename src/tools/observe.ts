@@ -12,6 +12,7 @@ import type { ToolActionResult } from "../types/types.js";
  */
 
 const ObserveInputSchema = z.object({
+  sessionId: z.string().min(1).describe("Required MCP session ID to use."),
   instruction: z.string().describe(
     `Detailed instruction for what specific elements or components to observe on the web page.
         This instruction must be extremely specific and descriptive. For example: 'Find the red login button
@@ -38,7 +39,7 @@ async function handleObserve(
 ): Promise<ToolResult> {
   const action = async (): Promise<ToolActionResult> => {
     try {
-      const stagehand = await context.getStagehand();
+      const stagehand = await context.getStagehand(params.sessionId);
 
       const observations = await stagehand.observe(params.instruction);
 
