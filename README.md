@@ -340,8 +340,8 @@ To close a specific session, `browserbase_session_close` requires the MCP `sessi
 
 ### HTTP Auth
 
-Requests can include `Authorization: Bearer <token>`.
-Current behavior is pass-through (no blocking). Token verification will be integrated with an external auth service in a later update.
+Requests must include `Authorization: Bearer <token>`.
+The server validates bearer tokens against `ACCOUNT_ME_URL` and defaults to `https://account.favie.yesy.online/user/me?business=ecap` when the environment variable is not set.
 
 Example client config with bearer header:
 

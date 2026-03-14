@@ -2,6 +2,12 @@ import type { AvailableModelSchema } from "@browserbasehq/stagehand";
 
 export type Config = {
   /**
+   * Account service endpoint used to validate bearer tokens.
+   *
+   * @default "https://account.favie.yesy.online/user/me?business=ecap"
+   */
+  accountMeUrl?: string;
+  /**
    * Browserbase API Key to authenticate requests
    */
   browserbaseApiKey: string;

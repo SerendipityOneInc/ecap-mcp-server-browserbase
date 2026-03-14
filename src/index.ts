@@ -19,6 +19,11 @@ import {
 // Configuration schema for Smithery - matches existing Config interface
 export const configSchema = z
   .object({
+    accountMeUrl: z
+      .string()
+      .url()
+      .optional()
+      .describe("Account service endpoint used to validate bearer tokens"),
     browserbaseApiKey: z.string().describe("The Browserbase API Key to use"),
     browserbaseProjectId: z
       .string()

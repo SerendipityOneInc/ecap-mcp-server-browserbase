@@ -19,6 +19,9 @@ export type CLIOptions = {
 
 // Default Configuration Values
 const defaultConfig: Config = {
+  accountMeUrl:
+    process.env.ACCOUNT_ME_URL ??
+    "https://account.favie.yesy.online/user/me?business=ecap",
   browserbaseApiKey: process.env.BROWSERBASE_API_KEY ?? "",
   browserbaseProjectId: process.env.BROWSERBASE_PROJECT_ID ?? "",
   proxies: false,
@@ -76,6 +79,9 @@ export async function configFromCLIOptions(
   cliOptions: CLIOptions,
 ): Promise<Config> {
   return {
+    accountMeUrl:
+      process.env.ACCOUNT_ME_URL ??
+      "https://account.favie.yesy.online/user/me?business=ecap",
     browserbaseApiKey: process.env.BROWSERBASE_API_KEY ?? "",
     browserbaseProjectId: process.env.BROWSERBASE_PROJECT_ID ?? "",
     server: {

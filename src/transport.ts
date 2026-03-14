@@ -7,6 +7,9 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import type { Config } from "../config.d.ts";
 
+const DEFAULT_ACCOUNT_ME_URL =
+  "https://account.favie.yesy.online/user/me?business=ecap";
+
 export async function startStdioTransport(
   serverList: ServerList,
   config?: Config,
@@ -30,17 +33,74 @@ export async function startStdioTransport(
   await server.connect(new StdioServerTransport());
 }
 
-function processAuthorizationHeader(req: http.IncomingMessage): void {
-  // Placeholder for future auth service integration.
-  // We intentionally do not block requests at this stage.
+function getAuthorizationHeader(req: http.IncomingMessage): string | undefined {
   const rawAuthHeader = req.headers.authorization;
-  const authHeader = Array.isArray(rawAuthHeader)
-    ? rawAuthHeader[0]
-    : rawAuthHeader;
-  if (!authHeader) return;
+  return Array.isArray(rawAuthHeader) ? rawAuthHeader[0] : rawAuthHeader;
+}
+
+function getBearerToken(req: http.IncomingMessage): string | null {
+  const authHeader = getAuthorizationHeader(req);
+  if (!authHeader) return null;
   const [scheme, token] = authHeader.split(" ");
-  if (scheme?.toLowerCase() === "bearer" && token) {
-    return;
+  return scheme?.toLowerCase() === "bearer" && token ? token : null;
+}
+
+function respondWithJson(
+  res: http.ServerResponse,
+  statusCode: number,
+  payload: Record<string, string>,
+): void {
+  res.statusCode = statusCode;
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.end(JSON.stringify(payload));
+}
+
+async function authorizeRequest(
+  req: http.IncomingMessage,
+  config?: Config,
+): Promise<{ ok: true } | { ok: false; statusCode: number; message: string }> {
+  const authHeader = getAuthorizationHeader(req);
+  const token = getBearerToken(req);
+
+  if (!authHeader || !token) {
+    return {
+      ok: false,
+      statusCode: 401,
+      message: "Authorization header with Bearer token is required",
+    };
+  }
+
+  const accountMeUrl =
+    config?.accountMeUrl ??
+    process.env.ACCOUNT_ME_URL ??
+    DEFAULT_ACCOUNT_ME_URL;
+
+  try {
+    const response = await fetch(accountMeUrl, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+      },
+    });
+    await response.text();
+    const isAuthorized = response.status === 200;
+
+    if (!isAuthorized) {
+      return {
+        ok: false,
+        statusCode: 401,
+        message: "Invalid auth token",
+      };
+    }
+
+    return { ok: true };
+  } catch {
+    return {
+      ok: false,
+      statusCode: 502,
+      message: "Failed to validate auth token",
+    };
   }
 }
 
@@ -83,21 +143,44 @@ export function startHttpTransport(
   port: number,
   hostname: string | undefined,
   serverList: ServerList,
+  config?: Config,
 ) {
   // In-memory Map of SHTTP sessions
   const streamableSessions = new Map<string, StreamableHTTPServerTransport>();
   const httpServer = http.createServer(async (req, res) => {
-    if (!req.url) {
-      res.statusCode = 400;
-      res.end("Bad request: missing URL");
-      return;
-    }
+    try {
+      if (!req.url) {
+        res.statusCode = 400;
+        res.end("Bad request: missing URL");
+        return;
+      }
 
-    processAuthorizationHeader(req);
+      const url = new URL(`http://localhost${req.url}`);
+      if (!url.pathname.startsWith("/mcp")) {
+        res.statusCode = 404;
+        res.end("Not found");
+        return;
+      }
 
-    const url = new URL(`http://localhost${req.url}`);
-    if (url.pathname.startsWith("/mcp"))
+      const authResult = await authorizeRequest(req, config);
+      if (!authResult.ok) {
+        respondWithJson(res, authResult.statusCode, {
+          detail: authResult.message,
+        });
+        return;
+      }
+
       await handleStreamable(req, res, serverList, streamableSessions);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown server error";
+      process.stderr.write(`[HTTP] Request handling failed: ${errorMessage}\n`);
+      if (!res.headersSent) {
+        respondWithJson(res, 500, { detail: "Internal server error" });
+      } else {
+        res.end();
+      }
+    }
   });
   httpServer.listen(port, hostname, () => {
     const address = httpServer.address();

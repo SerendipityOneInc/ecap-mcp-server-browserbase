@@ -71,7 +71,7 @@ program
     setupExitWatchdog(serverList);
 
     if (options.port)
-      startHttpTransport(+options.port, options.host, serverList);
+      startHttpTransport(+options.port, options.host, serverList, config);
     else await startStdioTransport(serverList, config);
   });
 
