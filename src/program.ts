@@ -63,9 +63,10 @@ program
   .option("--experimental", "Enable experimental features")
   .action(async (options) => {
     const config = await resolveConfig(options);
-    const serverList = new ServerList(async () =>
+    const serverList = new ServerList(async (serverOptions) =>
       createServerFunction({
         config: config,
+        requestContext: serverOptions?.requestContext,
       }),
     );
     setupExitWatchdog(serverList);

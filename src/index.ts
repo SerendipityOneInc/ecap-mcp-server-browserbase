@@ -15,6 +15,7 @@ import {
   ReadResourceRequestSchema,
   ListResourceTemplatesRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
+import type { RequestContextStore } from "./server.js";
 
 // Configuration schema for Smithery - matches existing Config interface
 export const configSchema = z
@@ -24,6 +25,11 @@ export const configSchema = z
       .url()
       .optional()
       .describe("Account service endpoint used to validate bearer tokens"),
+    billingServiceUrl: z
+      .string()
+      .url()
+      .optional()
+      .describe("Billing service endpoint used before session creation"),
     browserbaseApiKey: z.string().describe("The Browserbase API Key to use"),
     browserbaseProjectId: z
       .string()
@@ -114,7 +120,13 @@ export const configSchema = z
   );
 
 // Default function for Smithery
-export default function ({ config }: { config: z.infer<typeof configSchema> }) {
+export default function ({
+  config,
+  requestContext,
+}: {
+  config: z.infer<typeof configSchema>;
+  requestContext?: RequestContextStore;
+}) {
   if (!config.browserbaseApiKey) {
     throw new Error("browserbaseApiKey is required");
   }
@@ -139,7 +151,7 @@ export default function ({ config }: { config: z.infer<typeof configSchema> }) {
   const internalConfig: Config = config as Config;
 
   // Create the context, passing server instance and config
-  const context = new Context(server.server, internalConfig);
+  const context = new Context(server.server, internalConfig, requestContext);
 
   server.server.registerCapabilities({
     resources: {

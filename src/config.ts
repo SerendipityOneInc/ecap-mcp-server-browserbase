@@ -22,6 +22,9 @@ const defaultConfig: Config = {
   accountMeUrl:
     process.env.ACCOUNT_ME_URL ??
     "https://account.favie.yesy.online/user/me?business=ecap",
+  billingServiceUrl:
+    process.env.BILLING_SERVICE_URL ??
+    "https://ecap-proxy-service.panda-api.zooclaw.ai/",
   browserbaseApiKey: process.env.BROWSERBASE_API_KEY ?? "",
   browserbaseProjectId: process.env.BROWSERBASE_PROJECT_ID ?? "",
   proxies: false,
@@ -82,6 +85,9 @@ export async function configFromCLIOptions(
     accountMeUrl:
       process.env.ACCOUNT_ME_URL ??
       "https://account.favie.yesy.online/user/me?business=ecap",
+    billingServiceUrl:
+      process.env.BILLING_SERVICE_URL ??
+      "https://ecap-proxy-service.panda-api.zooclaw.ai/",
     browserbaseApiKey: process.env.BROWSERBASE_API_KEY ?? "",
     browserbaseProjectId: process.env.BROWSERBASE_PROJECT_ID ?? "",
     server: {

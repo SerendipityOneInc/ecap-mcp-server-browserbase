@@ -5,6 +5,8 @@ import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { listResources, readResource } from "./mcp/resources.js";
 import { SessionManager } from "./sessionManager.js";
 import type { MCPTool } from "./types/types.js";
+import type http from "node:http";
+import type { RequestContextStore } from "./server.js";
 
 /**
  * MCP Server Context
@@ -17,6 +19,7 @@ export class Context {
   public readonly config: Config;
   private server: Server;
   private sessionManager: SessionManager;
+  private requestContext?: RequestContextStore;
 
   // currentSessionId is a getter that delegates to SessionManager to ensure synchronization
   // This prevents desync between Context and SessionManager session tracking
@@ -24,10 +27,15 @@ export class Context {
     return this.sessionManager.getActiveSessionId();
   }
 
-  constructor(server: Server, config: Config) {
+  constructor(
+    server: Server,
+    config: Config,
+    requestContext?: RequestContextStore,
+  ) {
     this.server = server;
     this.config = config;
     this.sessionManager = new SessionManager();
+    this.requestContext = requestContext;
   }
 
   public getServer(): Server {
@@ -36,6 +44,20 @@ export class Context {
 
   public getSessionManager(): SessionManager {
     return this.sessionManager;
+  }
+
+  public getRequestHeader(name: string): string | undefined {
+    const requestHeaders = normalizeHeaders(this.requestContext?.requestHeaders);
+    return requestHeaders[name.toLowerCase()];
+  }
+
+  public getBearerAuthorization(): string | undefined {
+    const authorization = this.getRequestHeader("authorization");
+    if (!authorization) return undefined;
+
+    const [scheme, token] = authorization.split(" ");
+    if (scheme?.toLowerCase() !== "bearer" || !token) return undefined;
+    return authorization;
   }
 
   /**
@@ -119,4 +141,24 @@ export class Context {
   readResource(uri: string) {
     return readResource(uri);
   }
+}
+
+function normalizeHeaders(
+  headers?: http.IncomingHttpHeaders,
+): Record<string, string> {
+  if (!headers) return {};
+
+  const normalized: Record<string, string> = {};
+  for (const [key, value] of Object.entries(headers)) {
+    if (typeof value === "string") {
+      normalized[key.toLowerCase()] = value;
+      continue;
+    }
+
+    if (Array.isArray(value) && value.length > 0) {
+      normalized[key.toLowerCase()] = value[0];
+    }
+  }
+
+  return normalized;
 }

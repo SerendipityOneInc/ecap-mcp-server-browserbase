@@ -8,6 +8,12 @@ export type Config = {
    */
   accountMeUrl?: string;
   /**
+   * Billing service endpoint used before creating a new Browserbase session.
+   *
+   * @default "https://ecap-proxy-service.panda-api.zooclaw.ai/"
+   */
+  billingServiceUrl?: string;
+  /**
    * Browserbase API Key to authenticate requests
    */
   browserbaseApiKey: string;

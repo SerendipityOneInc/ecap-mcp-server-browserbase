@@ -6,6 +6,7 @@ import { ServerList } from "./server.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import type { Config } from "../config.d.ts";
+import type { RequestContextStore } from "./server.js";
 
 const DEFAULT_ACCOUNT_ME_URL =
   "https://account.favie.yesy.online/user/me?business=ecap";
@@ -108,29 +109,39 @@ async function handleStreamable(
   req: http.IncomingMessage,
   res: http.ServerResponse,
   serverList: ServerList,
-  sessions: Map<string, StreamableHTTPServerTransport>,
+  sessions: Map<
+    string,
+    {
+      transport: StreamableHTTPServerTransport;
+      requestContext: RequestContextStore;
+    }
+  >,
 ) {
   const sessionId = req.headers["mcp-session-id"] as string | undefined;
   if (sessionId) {
-    const transport = sessions.get(sessionId);
-    if (!transport) {
+    const session = sessions.get(sessionId);
+    if (!session) {
       res.statusCode = 404;
       res.end("Session not found");
       return;
     }
-    return await transport.handleRequest(req, res);
+    session.requestContext.requestHeaders = req.headers;
+    return await session.transport.handleRequest(req, res);
   }
 
   if (req.method === "POST") {
     const sessionId = crypto.randomUUID();
+    const requestContext: RequestContextStore = {
+      requestHeaders: req.headers,
+    };
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => sessionId,
     });
-    sessions.set(sessionId, transport);
+    sessions.set(sessionId, { transport, requestContext });
     transport.onclose = () => {
       if (transport.sessionId) sessions.delete(transport.sessionId);
     };
-    const server = await serverList.create();
+    const server = await serverList.create({ requestContext });
     await server.connect(transport);
     return await transport.handleRequest(req, res);
   }
@@ -146,7 +157,13 @@ export function startHttpTransport(
   config?: Config,
 ) {
   // In-memory Map of SHTTP sessions
-  const streamableSessions = new Map<string, StreamableHTTPServerTransport>();
+  const streamableSessions = new Map<
+    string,
+    {
+      transport: StreamableHTTPServerTransport;
+      requestContext: RequestContextStore;
+    }
+  >();
   const httpServer = http.createServer(async (req, res) => {
     try {
       if (!req.url) {

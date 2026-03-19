@@ -8,6 +8,8 @@ import { createUIResource } from "@mcp-ui/server";
 import type { BrowserSession } from "../types/types.js";
 import { TextContent } from "@modelcontextprotocol/sdk/types.js";
 
+const EXCEED_QUOTA_MESSAGE = "exceed quota";
+
 // --- Tool: Create Session ---
 const CreateSessionInputSchema = z.object({
   // Keep sessionId optional
@@ -48,10 +50,19 @@ async function handleCreateSession(
     try {
       const sessionManager = context.getSessionManager();
       const config = context.config; // Get config from context
+      const providedSessionId =
+        typeof params.sessionId === "string" && params.sessionId.length > 0
+          ? params.sessionId
+          : undefined;
       let targetSessionId: string;
       const bb = new Browserbase({
         apiKey: config.browserbaseApiKey,
       });
+
+      if (!providedSessionId) {
+        await billForCreateSession(context);
+      }
+
       const effectiveContextId =
         params.contextId ||
         (
@@ -62,8 +73,8 @@ async function handleCreateSession(
 
       // Session ID Strategy: Use raw sessionId for both internal tracking and Browserbase operations
       // Default session uses generated ID with timestamp/UUID, user sessions use provided ID as-is
-      if (params.sessionId) {
-        targetSessionId = params.sessionId;
+      if (providedSessionId) {
+        targetSessionId = providedSessionId;
         process.stderr.write(
           `[tool.createSession] Attempting to create/assign session with specified ID: ${targetSessionId}\n`,
         );
@@ -81,7 +92,7 @@ async function handleCreateSession(
           targetSessionId, // Internal session ID for tracking
           config,
           {
-            resumeSessionId: params.sessionId, // Browserbase session ID to resume
+            resumeSessionId: providedSessionId, // Browserbase session ID to resume
             contextId: effectiveContextId,
             contextPersist: params.persist,
           },
@@ -141,6 +152,9 @@ async function handleCreateSession(
       process.stderr.write(
         `[tool.createSession] Action failed: ${errorMessage}\n`,
       );
+      if (errorMessage === EXCEED_QUOTA_MESSAGE) {
+        throw new Error(EXCEED_QUOTA_MESSAGE);
+      }
       // Re-throw to be caught by Context.run's error handling for actions
       throw new Error(`Failed to create Browserbase session: ${errorMessage}`);
     }
@@ -159,6 +173,83 @@ const createSessionTool: Tool<typeof CreateSessionInputSchema> = {
   schema: createSessionSchema,
   handle: handleCreateSession,
 };
+
+async function billForCreateSession(context: Context): Promise<void> {
+  const authorization = context.getBearerAuthorization();
+  if (!authorization) {
+    throw new Error("Missing Authorization bearer token");
+  }
+  const billingServiceUrl =
+    context.config.billingServiceUrl ??
+    "https://ecap-proxy-service.panda-api.zooclaw.ai/";
+  const billingUrl = new URL("/browser/billing", billingServiceUrl).toString();
+
+  const litellmApiBase = getRequiredRequestHeader(context, [
+    "litellm_api_base",
+    "litellm-api-base",
+    "x-litellm-api-base",
+  ]);
+  const litellmApiKey = getRequiredRequestHeader(context, [
+    "litellm_api_key",
+    "litellm-api-key",
+    "x-litellm-api-key",
+  ]);
+
+  try {
+    const response = await fetch(billingUrl, {
+      method: "POST",
+      headers: {
+        Authorization: authorization,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        litellm_api_base: litellmApiBase,
+        litellm_api_key: litellmApiKey,
+        billing_params: {
+          timestamp: Date.now(),
+          properties: {
+            model: "browserbase",
+            total_tokens: 30,
+            prompt_tokens: 30,
+            completion_tokens: 30,
+            response_cost: 0.05,
+          },
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(EXCEED_QUOTA_MESSAGE);
+    }
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === EXCEED_QUOTA_MESSAGE
+    ) {
+      throw error;
+    }
+
+    process.stderr.write(
+      `[tool.createSession] Billing request failed: ${
+        error instanceof Error ? error.message : String(error)
+      }\n`,
+    );
+    throw new Error(EXCEED_QUOTA_MESSAGE);
+  }
+}
+
+function getRequiredRequestHeader(
+  context: Context,
+  headerNames: string[],
+): string {
+  for (const headerName of headerNames) {
+    const value = context.getRequestHeader(headerName);
+    if (value) return value;
+  }
+
+  throw new Error(`Missing required header: ${headerNames[0]}`);
+}
 
 // --- Tool: Close Session ---
 const CloseSessionInputSchema = z.object({

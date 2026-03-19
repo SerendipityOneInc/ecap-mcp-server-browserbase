@@ -342,6 +342,7 @@ To close a specific session, `browserbase_session_close` requires the MCP `sessi
 
 Requests must include `Authorization: Bearer <token>`.
 The server validates bearer tokens against `ACCOUNT_ME_URL` and defaults to `https://account.favie.yesy.online/user/me?business=ecap` when the environment variable is not set.
+Create-session billing uses `BILLING_SERVICE_URL` and defaults to `https://ecap-proxy-service.panda-api.zooclaw.ai/` when the environment variable is not set.
 
 Example client config with bearer header:
 

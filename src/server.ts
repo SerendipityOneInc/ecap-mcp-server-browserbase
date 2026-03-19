@@ -1,15 +1,26 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import type http from "node:http";
+
+export type RequestContextStore = {
+  requestHeaders?: http.IncomingHttpHeaders;
+};
+
+export type ServerFactoryOptions = {
+  requestContext?: RequestContextStore;
+};
 
 export class ServerList {
   private _servers: Server[] = [];
-  private _serverFactory: () => Promise<Server>;
+  private _serverFactory: (options?: ServerFactoryOptions) => Promise<Server>;
 
-  constructor(serverFactory: () => Promise<Server>) {
+  constructor(
+    serverFactory: (options?: ServerFactoryOptions) => Promise<Server>,
+  ) {
     this._serverFactory = serverFactory;
   }
 
-  async create() {
-    const server = await this._serverFactory();
+  async create(options?: ServerFactoryOptions) {
+    const server = await this._serverFactory(options);
     this._servers.push(server);
     return server;
   }
