@@ -210,9 +210,6 @@ async function billForCreateSession(context: Context): Promise<void> {
           timestamp: Date.now(),
           properties: {
             model: "browserbase",
-            total_tokens: 30,
-            prompt_tokens: 30,
-            completion_tokens: 30,
             response_cost: 0.05,
           },
         },
@@ -223,10 +220,7 @@ async function billForCreateSession(context: Context): Promise<void> {
       throw new Error(EXCEED_QUOTA_MESSAGE);
     }
   } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message === EXCEED_QUOTA_MESSAGE
-    ) {
+    if (error instanceof Error && error.message === EXCEED_QUOTA_MESSAGE) {
       throw error;
     }
 
