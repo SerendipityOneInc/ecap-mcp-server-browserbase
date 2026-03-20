@@ -20,6 +20,8 @@ WORKDIR /app
 ENV BROWSERBASE_API_KEY=""
 ENV BROWSERBASE_PROJECT_ID=""
 ENV MODEL_API_KEY=""
+ENV ACCOUNT_ME_URL="https://account.favie.yesy.online/user/me?business=ecap"
+ENV BILLING_SERVICE_URL="https://ecap-proxy-service.panda-api.zooclaw.ai/"
 
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/node_modules ./node_modules
