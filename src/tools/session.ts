@@ -207,7 +207,7 @@ async function billForCreateSession(context: Context): Promise<void> {
         litellm_api_base: litellmApiBase,
         litellm_api_key: litellmApiKey,
         billing_params: {
-          timestamp: Date.now(),
+          timestamp: Math.floor(Date.now() / 1000),
           properties: {
             model: "browserbase",
             response_cost: 0.05,
